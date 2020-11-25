@@ -34,7 +34,7 @@ const CONFIG = {
   },
 
   // Optional: Enables reading mapbox token from environment variable
-  plugins: [new HtmlWebpackPlugin({title: 'deck.gl example'})]
+  plugins: [new HtmlWebpackPlugin({title: 'ADNAN'})]
 };
 
 // This line enables bundling against src in this repo rather than installed deck.gl module
