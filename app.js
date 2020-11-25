@@ -1,16 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
 import {render} from 'react-dom';
 import {StaticMap} from 'react-map-gl';
 import DeckGL, {GeoJsonLayer, ArcLayer} from 'deck.gl';
-
+import {ScatterplotLayer} from '@deck.gl/layers';
+import {parse} from '@loaders.gl/core';
+import {CSVLoader} from '@loaders.gl/csv';
+import {TripsLayer} from '@deck.gl/geo-layers'
 // source: Natural Earth http://www.naturalearthdata.com/ via geojson.xyz
-const AIR_PORTS =
-  'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_10m_airports.geojson';
+import * as d3 from "d3";
+let SYRX = [-88.0433158, 43.0430893]
 
+const AIR_PORTS =
+  './woop.csv';
 const INITIAL_VIEW_STATE = {
-  latitude: 51.47,
-  longitude: 0.45,
-  zoom: 4,
+  latitude: 39,
+  longitude: -98,
+  zoom: 3,
   bearing: 0,
   pitch: 30
 };
@@ -18,45 +24,82 @@ const INITIAL_VIEW_STATE = {
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
 
 function Root() {
+  const [data, setData] = useState([]);
+  const [time, setTime] = useState(0)
+
+  useEffect(() => {
+   // Update the document title using the browser API
+    let hi = async () => {
+      let newData = await parse(fetch(AIR_PORTS), CSVLoader);
+      setData(newData)
+      window.newData = newData
+      //console.log(newData.filter(d => d[4]).length)
+    }
+
+    hi()
+
+ });
+
   const onClick = info => {
     if (info.object) {
       // eslint-disable-next-line
-      alert(`${info.object.properties.name} (${info.object.properties.abbrev})`);
+      console.log(info)
     }
   };
+  let trips = data.map(d=> {
 
+    return {
+      waypoints: [{coordinates: SYRX, timestamp: 0},
+                {coordinates: [d[5],d[4]] , timestamp: 1}
+    ]
+    }
+  })
+  window.trips = trips
+
+  if(! data.length) return null
+  //console.log(data.length)
   const layers = [
-    new GeoJsonLayer({
+    new ScatterplotLayer({
       id: 'airports',
-      data: AIR_PORTS,
+      data: data,
       // Styles
       filled: true,
-      pointRadiusMinPixels: 2,
-      pointRadiusScale: 2000,
-      getRadius: f => 11 - f.properties.scalerank,
-      getFillColor: [200, 0, 80, 180],
+      getRadius: f => 11,
+      getFillColor: [200, 0, 80, 250],
       // Interactive props
       pickable: true,
+      radiusMinPixels: 5,
       autoHighlight: true,
+      getPosition: d => [d[5], d[4]],
+
       onClick
     }),
-    new ArcLayer({
-      id: 'arcs',
-      data: AIR_PORTS,
-      dataTransform: d => d.features.filter(f => f.properties.scalerank < 4),
-      // Styles
-      getSourcePosition: f => [-0.4531566, 51.4709959], // London
-      getTargetPosition: f => f.geometry.coordinates,
-      getSourceColor: [0, 128, 200],
-      getTargetColor: [200, 0, 80],
-      getWidth: 1
-    })
-  ];
 
+    new TripsLayer({
+      id: 'trips',
+      data: trips,
+      getPath: d => d.waypoints.map(p => p.coordinates),
+
+      // Styles
+      getTimestamps: d => d.waypoints.map(p => p.timestamp),
+   getColor: [253, 128, 93],
+   opacity: 0.8,
+   widthMinPixels: 5,
+   rounded: true,
+   trailLength: .05,
+   currentTime: time / 100,
+
+      onClick
+    }),
+  ];
   return (
+    <div>
     <DeckGL initialViewState={INITIAL_VIEW_STATE} controller={true} layers={layers}>
       <StaticMap mapStyle={MAP_STYLE} />
     </DeckGL>
+    <input type="range" value={time} onChange={(e) => {console.log(e.target.value), setTime(+ e.target.value)}}class="input" style={{position:'absolute'}}/>
+
+    </div>
   );
 }
 
